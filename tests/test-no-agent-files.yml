@@ -1,0 +1,63 @@
+name: Test - No Agent Files Found
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create empty scan directory
+        run: mkdir -p /tmp/empty-scan
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: /tmp/empty-scan
+          fail-on-gaps: 'false'
+
+      - name: Assert score is 100 (no files = perfect score)
+        env:
+          ACTUAL: ${{ steps.action.outputs.score }}
+        run: |
+          echo "actual score: $ACTUAL"
+          if [ "$ACTUAL" != "100" ]; then
+            echo "FAIL: expected score=100, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert agent-files is 0
+        env:
+          ACTUAL: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "actual agent-files: $ACTUAL"
+          if [ "$ACTUAL" != "0" ]; then
+            echo "FAIL: expected agent-files=0, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert gaps is 0
+        env:
+          ACTUAL: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "actual gaps: $ACTUAL"
+          if [ "$ACTUAL" != "0" ]; then
+            echo "FAIL: expected gaps=0, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert report contains no-agent-detected message
+        env:
+          ACTUAL: ${{ steps.action.outputs.report }}
+        run: |
+          echo "actual report: $ACTUAL"
+          if echo "$ACTUAL" | grep -q "No AI agent framework usage detected"; then
+            echo "PASS"
+          else
+            echo "FAIL: expected report to mention no agent framework detected"
+            exit 1
+          fi

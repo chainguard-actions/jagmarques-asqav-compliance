@@ -1,0 +1,90 @@
+name: Test - Compliant Agent File
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create compliant Python agent file
+        run: |
+          mkdir -p /tmp/compliant-agent
+          cat > /tmp/compliant-agent/agent.py << 'EOF'
+          import openai
+          import logging
+
+          # Audit trail
+          logger = logging.getLogger(__name__)
+
+          # Policy enforcement
+          MAX_STEPS = 10
+          TIMEOUT = 30
+          POLICY = "strict"
+
+          # Revocation / kill switch
+          KILL_SWITCH = False
+
+          def run_agent():
+              if KILL_SWITCH:
+                  return
+
+              # Human oversight
+              HUMAN_OVERSIGHT = True
+              if HUMAN_OVERSIGHT:
+                  approval = input("Approve action? (y/n): ")
+                  if approval != "y":
+                      return
+
+              try:
+                  logger.info("Running agent action")
+                  client = openai.OpenAI()
+                  response = client.chat.completions.create(
+                      model="gpt-4",
+                      messages=[{"role": "user", "content": "Hello"}]
+                  )
+                  logger.info("Agent completed successfully")
+              except Exception as e:
+                  logger.error(f"Agent error: {e}")
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: /tmp/compliant-agent
+          fail-on-gaps: 'false'
+
+      - name: Assert agent-files is 1
+        env:
+          ACTUAL: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "actual agent-files: $ACTUAL"
+          if [ "$ACTUAL" != "1" ]; then
+            echo "FAIL: expected agent-files=1, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert score is greater than 0
+        env:
+          ACTUAL: ${{ steps.action.outputs.score }}
+        run: |
+          echo "actual score: $ACTUAL"
+          if [ -z "$ACTUAL" ] || [ "$ACTUAL" -le 0 ] 2>/dev/null; then
+            echo "FAIL: expected score > 0, got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: score=$ACTUAL"
+
+      - name: Assert report contains governance report header
+        env:
+          ACTUAL: ${{ steps.action.outputs.report }}
+        run: |
+          echo "actual report excerpt: ${ACTUAL:0:200}"
+          if echo "$ACTUAL" | grep -q "AI Agent Governance Report"; then
+            echo "PASS"
+          else
+            echo "FAIL: expected report to contain 'AI Agent Governance Report'"
+            exit 1
+          fi
