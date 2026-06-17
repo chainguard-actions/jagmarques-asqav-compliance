@@ -1,0 +1,68 @@
+name: Test basic usage
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: '.'
+          fail-on-gaps: 'false'
+      - name: Assert score output is set
+        env:
+          SCORE: ${{ steps.action.outputs.score }}
+        run: |
+          echo "score: $SCORE"
+          if [ -z "$SCORE" ]; then
+            echo "FAIL: expected score output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: score=$SCORE"
+      - name: Assert agent-files output is set
+        env:
+          AGENT_FILES: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "agent-files: $AGENT_FILES"
+          if [ -z "$AGENT_FILES" ]; then
+            echo "FAIL: expected agent-files output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: agent-files=$AGENT_FILES"
+      - name: Assert gaps output is set
+        env:
+          GAPS: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "gaps: $GAPS"
+          if [ -z "$GAPS" ]; then
+            echo "FAIL: expected gaps output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: gaps=$GAPS"
+      - name: Assert report output is set
+        env:
+          REPORT: ${{ steps.action.outputs.report }}
+        run: |
+          echo "report length: ${#REPORT}"
+          if [ -z "$REPORT" ]; then
+            echo "FAIL: expected report output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: report is non-empty"
+      - name: Assert score is numeric and in range 0-100
+        env:
+          SCORE: ${{ steps.action.outputs.score }}
+        run: |
+          echo "score: $SCORE"
+          if ! echo "$SCORE" | grep -qE '^[0-9]+(\.[0-9]+)?$'; then
+            echo "FAIL: score '$SCORE' is not a valid number"
+            exit 1
+          fi
+          if [ "$(echo "$SCORE > 100" | bc -l)" = "1" ]; then
+            echo "FAIL: score '$SCORE' exceeds 100"
+            exit 1
+          fi
+          echo "PASS: score is numeric and in range"

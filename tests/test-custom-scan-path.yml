@@ -1,0 +1,58 @@
+name: Test custom scan path
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Create a subdirectory with a sample agent file
+        run: |
+          mkdir -p /tmp/agent-scan-target
+          cat > /tmp/agent-scan-target/agent.py << 'EOF'
+          # Sample AI agent file
+          import openai
+
+          def run_agent(prompt):
+              response = openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+              return response.choices[0].message.content
+          EOF
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: '/tmp/agent-scan-target'
+          fail-on-gaps: 'false'
+      - name: Assert score output is produced for custom path
+        env:
+          SCORE: ${{ steps.action.outputs.score }}
+        run: |
+          echo "score: $SCORE"
+          if [ -z "$SCORE" ]; then
+            echo "FAIL: expected score output to be non-empty for custom scan path"
+            exit 1
+          fi
+          echo "PASS: score=$SCORE"
+      - name: Assert agent-files output is produced for custom path
+        env:
+          AGENT_FILES: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "agent-files: $AGENT_FILES"
+          if [ -z "$AGENT_FILES" ]; then
+            echo "FAIL: expected agent-files output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: agent-files=$AGENT_FILES"
+      - name: Assert report is non-empty for custom path
+        env:
+          REPORT: ${{ steps.action.outputs.report }}
+        run: |
+          echo "report length: ${#REPORT}"
+          if [ -z "$REPORT" ]; then
+            echo "FAIL: expected report output to be non-empty"
+            exit 1
+          fi
+          echo "PASS: report is non-empty"
