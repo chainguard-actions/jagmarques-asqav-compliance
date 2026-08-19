@@ -7,7 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create compliant Python agent file
+      - name: Create a compliant agent Python file
         run: |
           mkdir -p /tmp/compliant-agent
           cat > /tmp/compliant-agent/agent.py << 'EOF'
@@ -18,34 +18,25 @@ jobs:
           logger = logging.getLogger(__name__)
 
           # Policy enforcement
-          MAX_STEPS = 10
-          TIMEOUT = 30
-          POLICY = "strict"
+          rate_limit = 10
+          max_steps = 5
+          timeout = 30
 
-          # Revocation / kill switch
-          KILL_SWITCH = False
+          # Revocation
+          def kill_switch():
+              shutdown()
 
-          def run_agent():
-              if KILL_SWITCH:
-                  return
+          # Human oversight
+          def require_approval(action):
+              human_in_the_loop = True
+              return human_review(action)
 
-              # Human oversight
-              HUMAN_OVERSIGHT = True
-              if HUMAN_OVERSIGHT:
-                  approval = input("Approve action? (y/n): ")
-                  if approval != "y":
-                      return
-
-              try:
-                  logger.info("Running agent action")
-                  client = openai.OpenAI()
-                  response = client.chat.completions.create(
-                      model="gpt-4",
-                      messages=[{"role": "user", "content": "Hello"}]
-                  )
-                  logger.info("Agent completed successfully")
-              except Exception as e:
-                  logger.error(f"Agent error: {e}")
+          # Error handling
+          try:
+              result = openai.ChatCompletion.create(model="gpt-4", messages=[])
+              logger.info("Action completed")
+          except Exception as e:
+              logger.error(f"Error: {e}")
           EOF
 
       - id: action
@@ -61,30 +52,40 @@ jobs:
         run: |
           echo "actual agent-files: $ACTUAL"
           if [ "$ACTUAL" != "1" ]; then
-            echo "FAIL: expected agent-files=1, got '$ACTUAL'"
+            echo "FAIL: expected agent-files=1 but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
 
-      - name: Assert score is greater than 0
+      - name: Assert gaps is 0 (all governance checks pass)
+        env:
+          ACTUAL: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "actual gaps: $ACTUAL"
+          if [ "$ACTUAL" != "0" ]; then
+            echo "FAIL: expected gaps=0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert score is 100 (fully compliant)
         env:
           ACTUAL: ${{ steps.action.outputs.score }}
         run: |
           echo "actual score: $ACTUAL"
-          if [ -z "$ACTUAL" ] || [ "$ACTUAL" -le 0 ] 2>/dev/null; then
-            echo "FAIL: expected score > 0, got '$ACTUAL'"
+          if [ "$ACTUAL" != "100" ]; then
+            echo "FAIL: expected score=100 but got '$ACTUAL'"
             exit 1
           fi
-          echo "PASS: score=$ACTUAL"
+          echo "PASS"
 
       - name: Assert report contains governance report header
         env:
           ACTUAL: ${{ steps.action.outputs.report }}
         run: |
-          echo "actual report excerpt: ${ACTUAL:0:200}"
-          if echo "$ACTUAL" | grep -q "AI Agent Governance Report"; then
-            echo "PASS"
-          else
-            echo "FAIL: expected report to contain 'AI Agent Governance Report'"
+          echo "actual report (first 500 chars): ${ACTUAL:0:500}"
+          if ! echo "$ACTUAL" | grep -q "AI Agent Governance Report"; then
+            echo "FAIL: report does not contain expected header"
             exit 1
           fi
+          echo "PASS"

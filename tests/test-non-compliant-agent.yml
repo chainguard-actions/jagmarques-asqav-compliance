@@ -1,0 +1,75 @@
+name: Test - Non-Compliant Agent File
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a non-compliant agent Python file (missing all governance patterns)
+        run: |
+          mkdir -p /tmp/non-compliant-agent
+          cat > /tmp/non-compliant-agent/bad_agent.py << 'EOF'
+          import openai
+
+          # No audit trail, no policy enforcement, no revocation,
+          # no human oversight, no error handling
+          def run_agent():
+              result = openai.ChatCompletion.create(
+                  model="gpt-4",
+                  messages=[{"role": "user", "content": "Do something"}]
+              )
+              return result
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: /tmp/non-compliant-agent
+          fail-on-gaps: 'false'
+
+      - name: Assert agent-files is 1
+        env:
+          ACTUAL: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "actual agent-files: $ACTUAL"
+          if [ "$ACTUAL" != "1" ]; then
+            echo "FAIL: expected agent-files=1 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert gaps is greater than 0
+        env:
+          ACTUAL: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "actual gaps: $ACTUAL"
+          if [ -z "$ACTUAL" ] || [ "$ACTUAL" -le 0 ] 2>/dev/null; then
+            echo "FAIL: expected gaps>0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: gaps=$ACTUAL (>0 as expected)"
+
+      - name: Assert score is less than 100
+        env:
+          ACTUAL: ${{ steps.action.outputs.score }}
+        run: |
+          echo "actual score: $ACTUAL"
+          if [ -z "$ACTUAL" ] || [ "$ACTUAL" -ge 100 ] 2>/dev/null; then
+            echo "FAIL: expected score<100 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: score=$ACTUAL (<100 as expected)"
+
+      - name: Assert report contains GAP indicator
+        env:
+          ACTUAL: ${{ steps.action.outputs.report }}
+        run: |
+          echo "actual report (first 500 chars): ${ACTUAL:0:500}"
+          if ! echo "$ACTUAL" | grep -q "GAP"; then
+            echo "FAIL: report does not contain 'GAP' indicator"
+            exit 1
+          fi
+          echo "PASS"

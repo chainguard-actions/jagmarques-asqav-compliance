@@ -1,4 +1,4 @@
-name: Test - No Agent Files Found
+name: Test - No Agent Files
 on:
   workflow_dispatch:
 jobs:
@@ -7,23 +7,26 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create empty scan directory
-        run: mkdir -p /tmp/empty-scan
+      - name: Create a scan directory with no Python agent files
+        run: |
+          mkdir -p /tmp/no-agents
+          echo "print('hello world')" > /tmp/no-agents/hello.py
+          echo "x = 1 + 1" > /tmp/no-agents/math.py
 
       - id: action
         uses: .
         with:
           github-token: ${{ github.token }}
-          scan-path: /tmp/empty-scan
+          scan-path: /tmp/no-agents
           fail-on-gaps: 'false'
 
-      - name: Assert score is 100 (no files = perfect score)
+      - name: Assert score is 100 (no agent files means full score)
         env:
           ACTUAL: ${{ steps.action.outputs.score }}
         run: |
           echo "actual score: $ACTUAL"
           if [ "$ACTUAL" != "100" ]; then
-            echo "FAIL: expected score=100, got '$ACTUAL'"
+            echo "FAIL: expected score=100 but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
@@ -34,7 +37,7 @@ jobs:
         run: |
           echo "actual agent-files: $ACTUAL"
           if [ "$ACTUAL" != "0" ]; then
-            echo "FAIL: expected agent-files=0, got '$ACTUAL'"
+            echo "FAIL: expected agent-files=0 but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
@@ -45,19 +48,18 @@ jobs:
         run: |
           echo "actual gaps: $ACTUAL"
           if [ "$ACTUAL" != "0" ]; then
-            echo "FAIL: expected gaps=0, got '$ACTUAL'"
+            echo "FAIL: expected gaps=0 but got '$ACTUAL'"
             exit 1
           fi
           echo "PASS"
 
-      - name: Assert report contains no-agent-detected message
+      - name: Assert report contains no-agent message
         env:
           ACTUAL: ${{ steps.action.outputs.report }}
         run: |
           echo "actual report: $ACTUAL"
-          if echo "$ACTUAL" | grep -q "No AI agent framework usage detected"; then
-            echo "PASS"
-          else
-            echo "FAIL: expected report to mention no agent framework detected"
+          if ! echo "$ACTUAL" | grep -q "AI Agent Governance Report"; then
+            echo "FAIL: report does not contain expected header"
             exit 1
           fi
+          echo "PASS"

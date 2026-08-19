@@ -1,0 +1,79 @@
+name: Test - Default Scan Path
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: '.'
+          fail-on-gaps: 'false'
+
+      - name: Assert score output is a number between 0 and 100
+        env:
+          ACTUAL: ${{ steps.action.outputs.score }}
+        run: |
+          echo "actual score: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: score output is empty"
+            exit 1
+          fi
+          if ! echo "$ACTUAL" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: score is not a number: '$ACTUAL'"
+            exit 1
+          fi
+          if [ "$ACTUAL" -lt 0 ] || [ "$ACTUAL" -gt 100 ]; then
+            echo "FAIL: score '$ACTUAL' is out of range [0,100]"
+            exit 1
+          fi
+          echo "PASS: score=$ACTUAL is a valid number in [0,100]"
+
+      - name: Assert agent-files output is a non-negative integer
+        env:
+          ACTUAL: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "actual agent-files: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: agent-files output is empty"
+            exit 1
+          fi
+          if ! echo "$ACTUAL" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: agent-files is not a number: '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: agent-files=$ACTUAL"
+
+      - name: Assert gaps output is a non-negative integer
+        env:
+          ACTUAL: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "actual gaps: $ACTUAL"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: gaps output is empty"
+            exit 1
+          fi
+          if ! echo "$ACTUAL" | grep -qE '^[0-9]+$'; then
+            echo "FAIL: gaps is not a number: '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS: gaps=$ACTUAL"
+
+      - name: Assert report output is non-empty and contains governance header
+        env:
+          ACTUAL: ${{ steps.action.outputs.report }}
+        run: |
+          echo "actual report (first 300 chars): ${ACTUAL:0:300}"
+          if [ -z "$ACTUAL" ]; then
+            echo "FAIL: report output is empty"
+            exit 1
+          fi
+          if ! echo "$ACTUAL" | grep -q "AI Agent Governance Report"; then
+            echo "FAIL: report does not contain expected header 'AI Agent Governance Report'"
+            exit 1
+          fi
+          echo "PASS"

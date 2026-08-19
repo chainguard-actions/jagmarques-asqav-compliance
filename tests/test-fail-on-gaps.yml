@@ -7,20 +7,16 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Create Python agent file with governance gaps
+      - name: Create a non-compliant agent Python file
         run: |
-          mkdir -p /tmp/fail-gap-agent
-          cat > /tmp/fail-gap-agent/agent.py << 'EOF'
-          import openai
+          mkdir -p /tmp/fail-on-gaps-agent
+          cat > /tmp/fail-on-gaps-agent/bare_agent.py << 'EOF'
+          import langchain
 
-          def run_agent():
-              # No audit trail, no policy, no revocation, no human oversight, no error handling
-              client = openai.OpenAI()
-              response = client.chat.completions.create(
-                  model="gpt-4",
-                  messages=[{"role": "user", "content": "Hello"}]
-              )
-              return response
+          # Bare agent with no governance controls
+          def run():
+              chain = langchain.LLMChain()
+              return chain.run("Do something risky")
           EOF
 
       - id: action
@@ -28,16 +24,16 @@ jobs:
         continue-on-error: true
         with:
           github-token: ${{ github.token }}
-          scan-path: /tmp/fail-gap-agent
+          scan-path: /tmp/fail-on-gaps-agent
           fail-on-gaps: 'true'
 
       - name: Assert action failed due to gaps
         env:
           OUTCOME: ${{ steps.action.outcome }}
         run: |
-          echo "actual outcome: $OUTCOME"
+          echo "action outcome: $OUTCOME"
           if [ "$OUTCOME" != "failure" ]; then
-            echo "FAIL: expected action to fail when fail-on-gaps=true and gaps exist, got outcome='$OUTCOME'"
+            echo "FAIL: expected action to fail when fail-on-gaps=true and gaps exist, but outcome was '$OUTCOME'"
             exit 1
           fi
           echo "PASS: action correctly failed when gaps were found"
@@ -48,7 +44,7 @@ jobs:
         run: |
           echo "actual gaps: $ACTUAL"
           if [ -z "$ACTUAL" ] || [ "$ACTUAL" -le 0 ] 2>/dev/null; then
-            echo "FAIL: expected gaps > 0, got '$ACTUAL'"
+            echo "FAIL: expected gaps>0 but got '$ACTUAL'"
             exit 1
           fi
-          echo "PASS: gaps=$ACTUAL"
+          echo "PASS: gaps=$ACTUAL (>0 as expected)"
