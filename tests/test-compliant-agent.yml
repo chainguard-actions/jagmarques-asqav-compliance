@@ -1,0 +1,102 @@
+name: Test scan with fully compliant agent file
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Create a fully compliant Python agent file
+        run: |
+          mkdir -p /tmp/scan-compliant
+          cat > /tmp/scan-compliant/compliant_agent.py << 'EOF'
+          import openai
+          import logging
+
+          # Audit trail
+          logger = logging.getLogger(__name__)
+
+          # Policy enforcement
+          rate_limit = 10
+          max_steps = 5
+          timeout = 30
+
+          # Revocation / kill switch
+          kill_switch = False
+
+          # Human oversight
+          require_approval = True
+          human_in_the_loop = True
+
+          def run_agent(prompt):
+              if kill_switch:
+                  raise RuntimeError("Agent disabled")
+
+              if require_approval:
+                  logger.info("Awaiting human approval")
+
+              try:
+                  client = openai.OpenAI()
+                  response = client.chat.completions.create(
+                      model="gpt-4",
+                      messages=[{"role": "user", "content": prompt}]
+                  )
+                  result = response.choices[0].message.content
+                  logger.info("Agent action completed")
+                  return result
+              except Exception as e:
+                  logger.error(f"Agent error: {e}")
+                  raise
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          github-token: ${{ github.token }}
+          scan-path: /tmp/scan-compliant
+          fail-on-gaps: 'false'
+
+      - name: Assert agent-files is 1
+        env:
+          ACTUAL: ${{ steps.action.outputs.agent-files }}
+        run: |
+          echo "actual agent-files: $ACTUAL"
+          if [ "$ACTUAL" != "1" ]; then
+            echo "FAIL: expected agent-files=1 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert gaps is 0
+        env:
+          ACTUAL: ${{ steps.action.outputs.gaps }}
+        run: |
+          echo "actual gaps: $ACTUAL"
+          if [ "$ACTUAL" != "0" ]; then
+            echo "FAIL: expected gaps=0 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert score is 100
+        env:
+          ACTUAL: ${{ steps.action.outputs.score }}
+        run: |
+          echo "actual score: $ACTUAL"
+          if [ "$ACTUAL" != "100" ]; then
+            echo "FAIL: expected score=100 but got '$ACTUAL'"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: Assert report contains PASS indicators
+        env:
+          ACTUAL: ${{ steps.action.outputs.report }}
+        run: |
+          echo "actual report length: ${#ACTUAL}"
+          if ! echo "$ACTUAL" | grep -q "PASS"; then
+            echo "FAIL: expected report to contain PASS indicators"
+            exit 1
+          fi
+          echo "PASS"
