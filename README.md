@@ -6,10 +6,10 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 ## Versions
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v1.0.0 | [`v1.0.0`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/tree/v1.0.0) | [`4dc2aa6`](https://github.com/jagmarques/asqav-compliance/commit/4dc2aa670319f43fa2554e10a29c488877e147fe) |
-| v1.0.1 | [`v1.0.1`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/tree/v1.0.1) | [`93f1187`](https://github.com/jagmarques/asqav-compliance/commit/93f11879786cfdbe3bdac588fb5a265320380672) |
+| Version | Tag | Upstream commit | Hardening report |
+|---------|-----|-----------------|------------------|
+| v1.0.0 | [`v1.0.0`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/tree/v1.0.0) | [`4dc2aa6`](https://github.com/jagmarques/asqav-compliance/commit/4dc2aa670319f43fa2554e10a29c488877e147fe) | [`HARDENING.md`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/blob/v1.0.0/HARDENING.md) |
+| v1.0.1 | [`v1.0.1`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/tree/v1.0.1) | [`93f1187`](https://github.com/jagmarques/asqav-compliance/commit/93f11879786cfdbe3bdac588fb5a265320380672) | [`HARDENING.md`](https://github.com/chainguard-actions/jagmarques-asqav-compliance/blob/v1.0.1/HARDENING.md) |
 
 ## Privacy
 
